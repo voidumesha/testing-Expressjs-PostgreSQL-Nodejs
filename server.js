@@ -1,44 +1,79 @@
 const express = require("express");
-const app = express();
+const sequelize = require("./config/db");
+const User = require("./models/User");
 
+const app = express();
 app.use(express.json()); // Middleware to parse JSON
 
-const users = [
-  { id: 1, name: "void" },
-  { id: 2, name: "umesha" },
-];
-
-// GET all userss
-app.get("/users", (req, res) => {
-  res.json(users);
-
-   
+// Create a User
+app.post("/users", async (req, res) => {
+  try {
+    const { name, email } = req.body;
+    const user = await User.create({ name, email });
+    res.status(201).json(user);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
 });
 
-// POST a new user
-app.post("/users", (req, res) => {
-  const user = { id: users.length + 1, name: req.body.name };
-  users.push(user);
-  res.status(201).json(user);
+// Get All Users
+app.get("/users", async (req, res) => {
+  try {
+    const users = await User.findAll();
+    res.json(users);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
 });
 
-// PUT update user
-app.put("/users/:id", (req, res) => {
-  const user = users.find((u) => u.id === parseInt(req.params.id));
-  if (!user) return res.status(404).send("User not found");
-
-  user.name = req.body.name;
-  res.json(user);
+// Get User by ID
+app.get("/users/:id", async (req, res) => {
+  try {
+    const user = await User.findByPk(req.params.id);
+    if (!user) return res.status(404).json({ message: "User not found" });
+    res.json(user);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
 });
 
-// DELETE user
-app.delete("/users/:id", (req, res) => {
-  const index = users.findIndex((u) => u.id === parseInt(req.params.id));
-  if (index === -1) return res.status(404).send("User not found");
+// Update User
+app.put("/users/:id", async (req, res) => {
+  try {
+    const { name, email } = req.body;
+    const user = await User.findByPk(req.params.id);
+    if (!user) return res.status(404).json({ message: "User not found" });
 
-  users.splice(index, 1);
-  res.send("User deleted");
+    user.name = name;
+    user.email = email;
+    await user.save();
+
+    res.json(user);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
 });
 
-app.listen(3000, () => console.log("Server running on port 3000"));
- 
+// Delete User
+app.delete("/users/:id", async (req, res) => {
+  try {
+    const user = await User.findByPk(req.params.id);
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    await user.destroy();
+    res.json({ message: "User deleted successfully" });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Start the server
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, async () => {
+  try {
+    await sequelize.sync();
+    console.log(`✅ Server running on port ${PORT}`);
+  } catch (error) {
+    console.error("❌ Error syncing database:", error);
+  }
+});
